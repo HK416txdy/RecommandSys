@@ -3,8 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use recommand_sys::{
-    DataModel, build_recommender, generate_report, generate_report_for_algorithms, load_dataset,
-    prepare_data, search_movies,
+    DataModel, build_recommender, ensure_dataset_files, generate_report,
+    generate_report_for_algorithms, load_dataset, search_movies,
 };
 
 fn main() {
@@ -24,8 +24,8 @@ fn run() -> Result<(), String> {
         "prepare" => {
             let data_dir =
                 value_arg(&args, "--data-dir").unwrap_or_else(|| "data/ml-100k".to_string());
-            prepare_data(Path::new(&data_dir)).map_err(|e| e.to_string())?;
-            println!("prepared MovieLens-compatible data at {data_dir}");
+            ensure_dataset_files(Path::new(&data_dir)).map_err(|e| e.to_string())?;
+            println!("found MovieLens-compatible data at {data_dir}");
         }
         "search" => {
             let data_dir =
@@ -117,11 +117,7 @@ fn run() -> Result<(), String> {
 }
 
 fn ensure_data(data_dir: &str) -> Result<(), String> {
-    let path = Path::new(data_dir);
-    if !path.join("u.data").exists() || !path.join("u.item").exists() {
-        prepare_data(path).map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    ensure_dataset_files(Path::new(data_dir)).map_err(|e| e.to_string())
 }
 
 fn load_model(data_dir: &str) -> Result<DataModel, String> {
@@ -143,7 +139,7 @@ fn print_help() {
     println!(
         "Rust search and dynamic hybrid recommender\n\n\
 commands:\n\
-  prepare --data-dir data/ml-100k\n\
+  prepare --data-dir data/ml-100k  (check required MovieLens files)\n\
   search --query \"Star Wars\" --genre Action --year-from 1970 --top-n 10\n\
   recommend --user-id 196 --algorithm hybrid --top-n 10\n\
   evaluate --algorithm all --top-n 10 --holdout-ratio 0.2 --report reports/test_report.md\n\n\

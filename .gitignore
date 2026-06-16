@@ -2,7 +2,6 @@
 .idea/
 __MACOSX/
 .DS_Store
-prolog_homework/
 data/ml-100k/README
 data/ml-100k/allbut.pl
 data/ml-100k/mku.sh
@@ -12,3 +11,4 @@ data/ml-100k/u.occupation
 data/ml-100k/u.user
 data/ml-100k/u*.base
 data/ml-100k/u*.test
+/reports

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::Path;
 
 use crate::types::{Dataset, GENRES, ItemId, Movie, Rating, UserId};
@@ -78,121 +78,20 @@ impl DataModel {
     }
 }
 
-pub fn prepare_data(data_dir: &Path) -> io::Result<()> {
-    fs::create_dir_all(data_dir)?;
+pub fn ensure_dataset_files(data_dir: &Path) -> io::Result<()> {
     let item_path = data_dir.join("u.item");
     let data_path = data_dir.join("u.data");
-    if item_path.exists() && data_path.exists() {
-        return Ok(());
+    if !item_path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("missing MovieLens item file: {}", item_path.display()),
+        ));
     }
-
-    let items = [
-        (
-            1,
-            "Toy Story (1995)",
-            1995,
-            vec!["Animation", "Children", "Comedy"],
-        ),
-        (
-            2,
-            "GoldenEye (1995)",
-            1995,
-            vec!["Action", "Adventure", "Thriller"],
-        ),
-        (3, "Four Rooms (1995)", 1995, vec!["Comedy"]),
-        (4, "Get Shorty (1995)", 1995, vec!["Comedy", "Crime"]),
-        (
-            5,
-            "Copycat (1995)",
-            1995,
-            vec!["Crime", "Drama", "Thriller"],
-        ),
-        (6, "Twelve Monkeys (1995)", 1995, vec!["Sci-Fi", "Thriller"]),
-        (7, "Babe (1995)", 1995, vec!["Children", "Comedy", "Drama"]),
-        (8, "Richard III (1995)", 1995, vec!["Drama", "War"]),
-        (
-            9,
-            "Star Wars (1977)",
-            1977,
-            vec!["Action", "Adventure", "Sci-Fi", "War"],
-        ),
-        (10, "Pulp Fiction (1994)", 1994, vec!["Crime", "Drama"]),
-        (
-            11,
-            "The Matrix (1999)",
-            1999,
-            vec!["Action", "Sci-Fi", "Thriller"],
-        ),
-        (
-            12,
-            "Sense and Sensibility (1995)",
-            1995,
-            vec!["Drama", "Romance"],
-        ),
-    ];
-
-    let mut item_file = fs::File::create(item_path)?;
-    for (id, title, year, genres) in items {
-        let mut flags = vec!["0"; GENRES.len()];
-        for genre in genres {
-            if let Some(idx) = GENRES.iter().position(|g| *g == genre) {
-                flags[idx] = "1";
-            }
-        }
-        writeln!(
-            item_file,
-            "{}|{}|01-Jan-{}|unknown|http://example.invalid|{}",
-            id,
-            title,
-            year,
-            flags.join("|")
-        )?;
-    }
-
-    let ratings = [
-        (196, 1, 5),
-        (196, 6, 4),
-        (196, 9, 5),
-        (196, 11, 5),
-        (196, 12, 2),
-        (1, 1, 5),
-        (1, 3, 4),
-        (1, 4, 4),
-        (1, 7, 5),
-        (1, 10, 3),
-        (2, 2, 4),
-        (2, 5, 5),
-        (2, 6, 4),
-        (2, 9, 5),
-        (2, 11, 5),
-        (3, 8, 5),
-        (3, 10, 5),
-        (3, 12, 5),
-        (3, 5, 3),
-        (3, 4, 2),
-        (4, 1, 4),
-        (4, 7, 4),
-        (4, 12, 5),
-        (4, 3, 3),
-        (4, 8, 4),
-        (5, 2, 5),
-        (5, 9, 5),
-        (5, 11, 4),
-        (5, 6, 5),
-        (5, 5, 2),
-        (6, 10, 5),
-        (6, 4, 4),
-        (6, 5, 4),
-        (6, 12, 3),
-        (6, 8, 4),
-    ];
-    let mut data_file = fs::File::create(data_path)?;
-    for (idx, (user, item, rating)) in ratings.iter().enumerate() {
-        writeln!(
-            data_file,
-            "{user}\t{item}\t{rating}\t{}",
-            874_965_000 + idx as u64
-        )?;
+    if !data_path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("missing MovieLens ratings file: {}", data_path.display()),
+        ));
     }
     Ok(())
 }

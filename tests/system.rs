@@ -8,14 +8,140 @@ use recommand_sys::recommender::{
 };
 use recommand_sys::{
     DataModel, Recommendation, generate_report, generate_report_for_algorithms, load_dataset,
-    prepare_data, search_movies,
+    search_movies,
 };
 
 fn sample_model(name: &str) -> DataModel {
     let dir = std::env::temp_dir().join(format!("recommand_sys_test_data_{name}"));
     let _ = fs::remove_dir_all(&dir);
-    prepare_data(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    write_sample_data(&dir);
     DataModel::new(load_dataset(&dir).unwrap())
+}
+
+fn write_sample_data(dir: &std::path::Path) {
+    let items = [
+        (
+            1,
+            "Toy Story (1995)",
+            1995,
+            ["Animation", "Children", "Comedy"].as_slice(),
+        ),
+        (
+            2,
+            "GoldenEye (1995)",
+            1995,
+            ["Action", "Adventure", "Thriller"].as_slice(),
+        ),
+        (3, "Four Rooms (1995)", 1995, ["Comedy"].as_slice()),
+        (4, "Get Shorty (1995)", 1995, ["Comedy", "Crime"].as_slice()),
+        (
+            5,
+            "Copycat (1995)",
+            1995,
+            ["Crime", "Drama", "Thriller"].as_slice(),
+        ),
+        (
+            6,
+            "Twelve Monkeys (1995)",
+            1995,
+            ["Sci-Fi", "Thriller"].as_slice(),
+        ),
+        (
+            7,
+            "Babe (1995)",
+            1995,
+            ["Children", "Comedy", "Drama"].as_slice(),
+        ),
+        (8, "Richard III (1995)", 1995, ["Drama", "War"].as_slice()),
+        (
+            9,
+            "Star Wars (1977)",
+            1977,
+            ["Action", "Adventure", "Sci-Fi", "War"].as_slice(),
+        ),
+        (
+            10,
+            "Pulp Fiction (1994)",
+            1994,
+            ["Crime", "Drama"].as_slice(),
+        ),
+        (
+            11,
+            "The Matrix (1999)",
+            1999,
+            ["Action", "Sci-Fi", "Thriller"].as_slice(),
+        ),
+        (
+            12,
+            "Sense and Sensibility (1995)",
+            1995,
+            ["Drama", "Romance"].as_slice(),
+        ),
+    ];
+    let mut item_text = String::new();
+    for (id, title, year, genres) in items {
+        let mut flags = vec!["0"; recommand_sys::GENRES.len()];
+        for genre in genres {
+            if let Some(idx) = recommand_sys::GENRES.iter().position(|g| g == genre) {
+                flags[idx] = "1";
+            }
+        }
+        item_text.push_str(&format!(
+            "{}|{}|01-Jan-{}|unknown|http://example.invalid|{}\n",
+            id,
+            title,
+            year,
+            flags.join("|")
+        ));
+    }
+    fs::write(dir.join("u.item"), item_text).unwrap();
+
+    let ratings = [
+        (196, 1, 5),
+        (196, 6, 4),
+        (196, 9, 5),
+        (196, 11, 5),
+        (196, 12, 2),
+        (1, 1, 5),
+        (1, 3, 4),
+        (1, 4, 4),
+        (1, 7, 5),
+        (1, 10, 3),
+        (2, 2, 4),
+        (2, 5, 5),
+        (2, 6, 4),
+        (2, 9, 5),
+        (2, 11, 5),
+        (3, 8, 5),
+        (3, 10, 5),
+        (3, 12, 5),
+        (3, 5, 3),
+        (3, 4, 2),
+        (4, 1, 4),
+        (4, 7, 4),
+        (4, 12, 5),
+        (4, 3, 3),
+        (4, 8, 4),
+        (5, 2, 5),
+        (5, 9, 5),
+        (5, 11, 4),
+        (5, 6, 5),
+        (5, 5, 2),
+        (6, 10, 5),
+        (6, 4, 4),
+        (6, 5, 4),
+        (6, 12, 3),
+        (6, 8, 4),
+    ];
+    let data_text = ratings
+        .iter()
+        .enumerate()
+        .map(|(idx, (user, item, rating))| {
+            format!("{user}\t{item}\t{rating}\t{}\n", 874_965_000 + idx as u64)
+        })
+        .collect::<String>();
+    fs::write(dir.join("u.data"), data_text).unwrap();
 }
 
 #[test]
