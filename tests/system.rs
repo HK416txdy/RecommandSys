@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::fs;
 
 use recommand_sys::blending::HybridRecommender;
-use recommand_sys::eval::{ndcg_at_n, precision_at_n};
+use recommand_sys::eval::{f1, hit_rate_at_n, ndcg_at_n, precision_at_n, recall_at_n};
 use recommand_sys::recommender::{
     ContentRecommender, KnowledgeRecommender, Recommender, build_recommender,
 };
@@ -61,9 +61,12 @@ fn metric_helpers_match_known_values() {
             weights: None,
         },
     ];
-    let relevant = HashSet::from([1]);
+    let relevant = HashSet::from([1, 3]);
     assert!((precision_at_n(&recs, &relevant, 2) - 0.5).abs() < 0.001);
-    assert!((ndcg_at_n(&recs, &relevant, 2) - 1.0).abs() < 0.001);
+    assert!((recall_at_n(&recs, &relevant, 2) - 0.5).abs() < 0.001);
+    assert!((hit_rate_at_n(&recs, &relevant, 2) - 1.0).abs() < 0.001);
+    assert!((f1(0.5, 0.5) - 0.5).abs() < 0.001);
+    assert!((ndcg_at_n(&recs, &HashSet::from([1]), 2) - 1.0).abs() < 0.001);
 }
 
 #[test]
@@ -109,14 +112,19 @@ fn hybrid_dynamic_weights_are_normalized() {
 }
 
 #[test]
-fn report_contains_required_metric_names() {
+fn report_contains_required_metric_names_and_analysis_sections() {
     let model = sample_model("report");
     let report = generate_report(&model.dataset, 5, 0.2);
     assert!(report.contains("分类准确度"));
-    assert!(report.contains("nDCG"));
-    assert!(report.contains("MAE"));
-    assert!(report.contains("RMSE"));
-    assert!(report.contains("Top-N 精确度"));
+    assert!(report.contains("Precision@N"));
+    assert!(report.contains("Recall@N"));
+    assert!(report.contains("F1@N"));
+    assert!(report.contains("HitRate@N"));
+    assert!(report.contains("目录覆盖率"));
+    assert!(report.contains("平均推荐流行度"));
+    assert!(report.contains("类型多样性"));
+    assert!(report.contains("结果分析"));
+    assert!(report.contains("系统能力与局限性"));
 }
 
 #[test]
