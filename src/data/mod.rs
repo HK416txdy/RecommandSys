@@ -10,6 +10,8 @@ pub struct DataModel {
     pub dataset: Dataset,
     pub by_user: HashMap<UserId, Vec<Rating>>,
     pub by_item: HashMap<ItemId, Vec<Rating>>,
+    pub user_mean: HashMap<UserId, f32>,
+    pub item_mean: HashMap<ItemId, f32>,
     pub global_mean: f32,
 }
 
@@ -34,10 +36,26 @@ impl DataModel {
         } else {
             sum / dataset.ratings.len() as f32
         };
+        let user_mean = by_user
+            .iter()
+            .map(|(user_id, ratings)| {
+                let mean = ratings.iter().map(|r| r.rating).sum::<f32>() / ratings.len() as f32;
+                (*user_id, mean)
+            })
+            .collect();
+        let item_mean = by_item
+            .iter()
+            .map(|(item_id, ratings)| {
+                let mean = ratings.iter().map(|r| r.rating).sum::<f32>() / ratings.len() as f32;
+                (*item_id, mean)
+            })
+            .collect();
         Self {
             dataset,
             by_user,
             by_item,
+            user_mean,
+            item_mean,
             global_mean,
         }
     }

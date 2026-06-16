@@ -5,9 +5,15 @@ use crate::math::{clamp01, pearson, rating_to_norm};
 use crate::recommender::{Recommender, recommend_from};
 use crate::types::{ItemId, Recommendation, ScoredRecommendation, UserId};
 
+#[derive(Clone, Copy, Debug)]
+struct Similarity {
+    value: f32,
+    overlap: usize,
+}
+
 pub struct ItemCfRecommender<'a> {
     model: &'a DataModel,
-    similarities: HashMap<(ItemId, ItemId), f32>,
+    similarities: HashMap<(ItemId, ItemId), Similarity>,
 }
 
 impl<'a> ItemCfRecommender<'a> {
@@ -30,7 +36,7 @@ impl<'a> ItemCfRecommender<'a> {
         for i in 0..items.len() {
             for j in (i + 1)..items.len() {
                 let sim = item_similarity(items[i], items[j], &rating_maps);
-                if sim > 0.0 {
+                if sim.value > 0.0 {
                     similarities.insert((items[i], items[j]), sim);
                     similarities.insert((items[j], items[i]), sim);
                 }
@@ -42,8 +48,8 @@ impl<'a> ItemCfRecommender<'a> {
         }
     }
 
-    fn similarity(&self, a: ItemId, b: ItemId) -> f32 {
-        self.similarities.get(&(a, b)).copied().unwrap_or(0.0)
+    fn similarity(&self, a: ItemId, b: ItemId) -> Option<Similarity> {
+        self.similarities.get(&(a, b)).copied()
     }
 }
 
@@ -51,12 +57,18 @@ fn item_similarity(
     a: ItemId,
     b: ItemId,
     rating_maps: &HashMap<ItemId, HashMap<UserId, f32>>,
-) -> f32 {
+) -> Similarity {
     let Some(a_ratings) = rating_maps.get(&a) else {
-        return 0.0;
+        return Similarity {
+            value: 0.0,
+            overlap: 0,
+        };
     };
     let Some(b_ratings) = rating_maps.get(&b) else {
-        return 0.0;
+        return Similarity {
+            value: 0.0,
+            overlap: 0,
+        };
     };
     let mut av = Vec::new();
     let mut bv = Vec::new();
@@ -67,9 +79,17 @@ fn item_similarity(
         }
     }
     if av.len() < 2 {
-        0.0
+        Similarity {
+            value: 0.0,
+            overlap: av.len(),
+        }
     } else {
-        pearson(&av, &bv).max(0.0)
+        let overlap = av.len();
+        let shrink = overlap as f32 / (overlap as f32 + 15.0);
+        Similarity {
+            value: pearson(&av, &bv).max(0.0) * shrink,
+            overlap,
+        }
     }
 }
 
@@ -81,23 +101,46 @@ impl Recommender for ItemCfRecommender<'_> {
         let mut neighbors = 0usize;
 
         for rating in user_ratings {
-            let sim = self.similarity(item_id, rating.movie_id);
-            if sim > 0.0 {
-                numerator += sim * rating.rating;
-                denominator += sim.abs();
-                neighbors += 1;
+            let Some(sim) = self.similarity(item_id, rating.movie_id) else {
+                continue;
+            };
+            if sim.value > 0.0 {
+                let rated_item_mean = self
+                    .model
+                    .item_mean
+                    .get(&rating.movie_id)
+                    .copied()
+                    .unwrap_or(self.model.global_mean);
+                numerator += sim.value * (rating.rating - rated_item_mean);
+                denominator += sim.value.abs();
+                if sim.overlap >= 5 {
+                    neighbors += 1;
+                }
             }
         }
 
+        let item_mean = self
+            .model
+            .item_mean
+            .get(&item_id)
+            .copied()
+            .unwrap_or(self.model.global_mean);
         let prediction = if denominator > 0.0 {
-            numerator / denominator
+            let adjustment = numerator / denominator;
+            let confidence = clamp01((neighbors as f32 / 20.0) * denominator.min(1.0));
+            item_mean + adjustment * confidence
         } else {
-            self.model.global_mean
-        };
+            self.model
+                .user_mean
+                .get(&user_id)
+                .copied()
+                .unwrap_or(self.model.global_mean)
+        }
+        .clamp(1.0, 5.0);
         Some(ScoredRecommendation {
             raw_score: prediction,
             normalized_score: rating_to_norm(prediction),
-            confidence: clamp01((neighbors as f32 / 6.0) * denominator.min(1.0)),
+            confidence: clamp01((neighbors as f32 / 20.0) * denominator.min(1.0)),
             reason: format!("predicted from {neighbors} similar items"),
         })
     }

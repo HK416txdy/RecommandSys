@@ -47,18 +47,18 @@ impl<'a> HybridRecommender<'a> {
             .get(&item_id)
             .map(|r| r.len())
             .unwrap_or(0) as f32;
-        let cold_user_boost = if user_count < 3.0 { 1.5 } else { 1.0 };
-        let sparse_item_penalty = if item_count < 3.0 { 0.65 } else { 1.0 };
+        let cold_user_boost = if user_count < 5.0 { 1.25 } else { 1.0 };
+        let warm_user_boost = if user_count >= 10.0 { 1.15 } else { 1.0 };
+        let sparse_item_penalty = if item_count < 5.0 { 0.70 } else { 1.0 };
+        let popular_item_boost = if item_count >= 20.0 { 1.10 } else { 1.0 };
 
         AlgorithmWeights {
-            content: 0.22 * confidence(scores[0]) * cold_user_boost,
-            knowledge: 0.18 * confidence_floor(scores[1], 0.2) * cold_user_boost,
-            user_cf: 0.18 * confidence(scores[2]) * sparse_item_penalty,
-            item_cf: 0.18 * confidence(scores[3]) * sparse_item_penalty,
-            popularity: 0.10
-                * confidence_floor(scores[4], 0.2)
-                * if user_count < 3.0 { 1.4 } else { 1.0 },
-            matrix: 0.14 * confidence(scores[5]) * sparse_item_penalty,
+            content: 0.10 * confidence_floor(scores[0], 0.15) * cold_user_boost,
+            knowledge: 0.06 * confidence_floor(scores[1], 0.10) * cold_user_boost,
+            user_cf: 0.18 * confidence(scores[2]) * sparse_item_penalty * warm_user_boost,
+            item_cf: 0.22 * confidence(scores[3]) * sparse_item_penalty * warm_user_boost,
+            popularity: 0.10 * confidence_floor(scores[4], 0.25) * popular_item_boost,
+            matrix: 0.34 * confidence(scores[5]) * sparse_item_penalty * warm_user_boost,
         }
         .normalize()
     }

@@ -54,9 +54,10 @@ impl Recommender for ContentRecommender<'_> {
             .map(|r| r.len())
             .unwrap_or(0);
         let confidence = clamp01((features.len() as f32 / 8.0) * (history as f32 / 8.0).min(1.0));
+        let normalized_score = 0.45 + 0.45 * clamp01(score);
         Some(ScoredRecommendation {
             raw_score: score,
-            normalized_score: clamp01(score),
+            normalized_score,
             confidence,
             reason: "content features match the user's high-rated profile".to_string(),
         })
