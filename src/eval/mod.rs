@@ -7,6 +7,9 @@ use crate::types::{Dataset, ItemId, Rating, Recommendation, UserId};
 
 #[derive(Clone, Debug, Default)]
 pub struct EvaluationReport {
+    pub prediction_coverage: f32,
+    pub prediction_count: usize,
+    pub ranking_user_count: usize,
     pub accuracy: f32,
     pub ndcg_at_n: f32,
     pub mae: f32,
@@ -73,6 +76,7 @@ pub fn evaluate_algorithm(
     let mut prediction_count = 0usize;
     let mut precision_sum = 0.0;
     let mut recall_sum = 0.0;
+    let mut f1_sum = 0.0;
     let mut hit_sum = 0.0;
     let mut ndcg_sum = 0.0;
     let mut genre_diversity_sum = 0.0;
@@ -102,6 +106,7 @@ pub fn evaluate_algorithm(
             continue;
         }
         let recs = recommender.recommend(user_id, top_n);
+        let precision = precision_at_n(&recs, &relevant, top_n);
         let recall = recall_at_n(&recs, &relevant, top_n);
         let hits = hit_count_at_n(&recs, &relevant, top_n);
         for rec in recs.iter().take(top_n) {
@@ -113,8 +118,9 @@ pub fn evaluate_algorithm(
                 .unwrap_or(0.0);
             recommendation_total += 1;
         }
-        precision_sum += precision_at_n(&recs, &relevant, top_n);
+        precision_sum += precision;
         recall_sum += recall;
+        f1_sum += f1(precision, recall);
         hit_sum += if hits > 0 { 1.0 } else { 0.0 };
         ndcg_sum += ndcg_at_n(&recs, &relevant, top_n);
         genre_diversity_sum += genre_diversity_at_n(&recs, &model.dataset, top_n);
@@ -126,13 +132,16 @@ pub fn evaluate_algorithm(
     let precision = precision_sum / user_denom;
     let recall = recall_sum / user_denom;
     EvaluationReport {
+        prediction_coverage: prediction_count as f32 / test.len().max(1) as f32,
+        prediction_count,
+        ranking_user_count: user_count,
         accuracy: class_ok as f32 / denom,
         ndcg_at_n: ndcg_sum / user_denom,
         mae: abs_err / denom,
         rmse: (sq_err / denom).sqrt(),
         precision_at_n: precision,
         recall_at_n: recall,
-        f1_at_n: f1(precision, recall),
+        f1_at_n: f1_sum / user_denom,
         hit_rate_at_n: hit_sum / user_denom,
         catalog_coverage: recommended_items.len() as f32 / dataset.movies.len().max(1) as f32,
         avg_recommendation_popularity: popularity_sum / recommendation_total.max(1) as f32,

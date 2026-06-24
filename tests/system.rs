@@ -242,15 +242,18 @@ fn report_contains_required_metric_names_and_analysis_sections() {
     let model = sample_model("report");
     let report = generate_report(&model.dataset, 5, 0.2);
     assert!(report.contains("分类准确度"));
+    assert!(report.contains("预测覆盖率"));
+    assert!(report.contains("方法与数学建模"));
     assert!(report.contains("Precision@N"));
     assert!(report.contains("Recall@N"));
     assert!(report.contains("F1@N"));
     assert!(report.contains("HitRate@N"));
+    assert!(report.contains("nDCG@N"));
     assert!(report.contains("目录覆盖率"));
     assert!(report.contains("平均推荐流行度"));
     assert!(report.contains("类型多样性"));
     assert!(report.contains("结果分析"));
-    assert!(report.contains("系统能力与局限性"));
+    assert!(report.contains("## 局限性"));
 }
 
 #[test]
